@@ -73,31 +73,67 @@ def run_ipsae(ipsae_script_path, pae_file, cif_file, pae_cutoff, dist_cutoff):
         str or None: Path to the generated .txt file, or None if failed
     """
     try:
-        # Run ipsae.py
-        cmd = [
-            "python", ipsae_script_path,
-            pae_file, cif_file,
-            str(pae_cutoff), str(dist_cutoff)
-        ]
+        # Get the directory containing the input files
+        input_dir = os.path.dirname(cif_file)
         
-        print(f"Running: {' '.join(cmd)}")
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        # Convert ipsae script path to absolute path BEFORE changing directories
+        abs_ipsae_path = os.path.abspath(ipsae_script_path)
         
-        # Determine the expected output .txt file name
-        cif_basename = os.path.splitext(os.path.basename(cif_file))[0]
-        output_txt = f"{cif_basename}_{pae_cutoff}_{dist_cutoff}.txt"
+        # Change to the input directory before running ipsae.py
+        # This ensures output files are created in the same location as input files
+        original_cwd = os.getcwd()
+        os.chdir(input_dir)
         
-        # Check if the file was created in the current directory or same directory as CIF
-        current_dir_output = output_txt
-        cif_dir_output = os.path.join(os.path.dirname(cif_file), output_txt)
-        
-        if os.path.exists(current_dir_output):
-            return current_dir_output
-        elif os.path.exists(cif_dir_output):
-            return cif_dir_output
-        else:
-            print(f"Warning: Expected output file not found: {output_txt}")
-            return None
+        try:
+            # Run ipsae.py with relative paths for input files
+            pae_basename = os.path.basename(pae_file)
+            cif_basename = os.path.basename(cif_file)
+            
+            cmd = [
+                "python", abs_ipsae_path,
+                pae_basename, cif_basename,
+                str(pae_cutoff), str(dist_cutoff)
+            ]
+            
+            print(f"Running: {' '.join(cmd)}")
+            print(f"Working directory: {input_dir}")
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            
+            # Determine the expected output .txt file name
+            cif_name_no_ext = os.path.splitext(cif_basename)[0]
+            
+            # Handle float cutoffs that might have decimal points
+            pae_str = str(pae_cutoff).rstrip('0').rstrip('.') if '.' in str(pae_cutoff) else str(int(pae_cutoff))
+            dist_str = str(dist_cutoff).rstrip('0').rstrip('.') if '.' in str(dist_cutoff) else str(int(dist_cutoff))
+            
+            output_txt = f"{cif_name_no_ext}_{pae_str}_{dist_str}.txt"
+            
+            # Check if the file was created in the current directory (input_dir)
+            if os.path.exists(output_txt):
+                full_path = os.path.join(input_dir, output_txt)
+                return full_path
+            else:
+                # List all .txt files in the directory to debug
+                txt_files = [f for f in os.listdir('.') if f.endswith('.txt')]
+                print(f"Expected: {output_txt}")
+                print(f"Found .txt files: {txt_files}")
+                
+                # Try to find any .txt file that contains the model name
+                model_name = cif_name_no_ext.split('_model_')[0] if '_model_' in cif_name_no_ext else cif_name_no_ext
+                potential_files = [f for f in txt_files if model_name in f and not f.endswith('_byres.txt')]
+                
+                if potential_files:
+                    # Use the first matching file
+                    found_file = potential_files[0]
+                    print(f"Using alternative file: {found_file}")
+                    return os.path.join(input_dir, found_file)
+                else:
+                    print(f"Warning: No suitable .txt output file found")
+                    return None
+            
+        finally:
+            # Always return to original directory
+            os.chdir(original_cwd)
             
     except subprocess.CalledProcessError as e:
         print(f"Error running ipsae.py: {e}")
