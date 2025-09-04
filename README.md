@@ -6,11 +6,14 @@ Key Features:
 
 Automatic Structure Detection: Scans your out_dir/predictions/ folder to find all PAE (.npz) and CIF file pairs
 Batch Processing: Runs ipsae.py on each structure automatically
+
 Results Collation: Combines all results into organized CSV files
+
 Multiple Output Formats: Creates separate CSVs for different interaction types
 
 Usage:
 python run_ipsae_batch.py /path/to/your/out_dir /path/to/ipsae.py --pae_cutoff 15 --dist_cutoff 15
+
 Output Files:
 The script will generate several CSV files:
 
